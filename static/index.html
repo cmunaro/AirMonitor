@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Air Monitor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Air Monitor</h1>
+        <p id="status">Loading local readings...</p>
+      </div>
+      <div class="latest" id="latest"></div>
+    </header>
+
+    <main>
+      <section class="controls" aria-label="Chart controls">
+        <div class="segmented" id="groups"></div>
+        <label class="select-label">
+          Window
+          <select id="hours">
+            <option value="1">1 hour</option>
+            <option value="6">6 hours</option>
+            <option value="24" selected>24 hours</option>
+            <option value="72">3 days</option>
+            <option value="168">7 days</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="chart-shell">
+        <div class="chart-header">
+          <h2 id="chart-title">Comfort</h2>
+          <span id="point-count"></span>
+        </div>
+        <canvas id="chart" width="1200" height="520"></canvas>
+        <div class="toggles" id="toggles"></div>
+      </section>
+
+      <section class="details">
+        <h2>Recent Values</h2>
+        <div class="metric-grid" id="metric-grid"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
