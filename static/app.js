@@ -201,7 +201,7 @@ function renderDashboard() {
 
 function renderLatest() {
   latestEl.replaceChildren();
-  const fields = ["score", "temp", "humid", "co2", "cpm"];
+  const fields = ["score", "temp", "humid", "co2"];
   fields.forEach((field) => {
     const reading = field === "cpm" ? state.latestRad : state.latestAir;
     const item = document.createElement("div");
@@ -213,13 +213,16 @@ function renderLatest() {
 
 function renderMetricGrid() {
   metricGridEl.replaceChildren();
-  Object.values(GROUPS).flatMap((group) => group.fields).forEach((field) => {
-    const reading = field === "cpm" ? state.latestRad : state.latestAir;
-    const item = document.createElement("div");
-    item.className = "metric";
-    item.innerHTML = `<span class="label">${LABELS[field]}</span><span class="value">${formatValue(reading, field)}</span>`;
-    metricGridEl.append(item);
-  });
+  Object.values(GROUPS)
+    .flatMap((group) => group.fields)
+    .filter((field) => field !== "cpm")
+    .forEach((field) => {
+      const reading = field === "cpm" ? state.latestRad : state.latestAir;
+      const item = document.createElement("div");
+      item.className = "metric";
+      item.innerHTML = `<span class="label">${LABELS[field]}</span><span class="value">${formatValue(reading, field)}</span>`;
+      metricGridEl.append(item);
+    });
 }
 
 function drawChart() {
@@ -237,7 +240,7 @@ function drawChart() {
   titleEl.textContent = GROUPS[state.group].title;
   pointCountEl.textContent = `${state.readings.length} points`;
 
-  const padding = { top: 20, right: 18, bottom: 34, left: 56 };
+  const padding = { top: 20, right: 30, bottom: 34, left: 30 };
   const plot = {
     x: padding.left,
     y: padding.top,
@@ -275,7 +278,7 @@ function drawChart() {
 
   fields.forEach((field) => drawSeries(plot, field, min, max));
   if (state.mouseX !== null) {
-    drawTooltip(plot, fields, min, max);
+    drawTooltip(plot, fields, min, max, width, height);
   }
 }
 
@@ -365,7 +368,7 @@ function compactNumber(value) {
   return value.toFixed(1);
 }
 
-function drawTooltip(plot, fields, min, max) {
+function drawTooltip(plot, fields, min, max, width, height) {
   if (!state.readings.length || state.mouseX < plot.x || state.mouseX > plot.x + plot.w) {
     return;
   }
@@ -393,14 +396,19 @@ function drawTooltip(plot, fields, min, max) {
   const dateStr = date.toLocaleString();
   ctx.font = "bold 12px system-ui, sans-serif";
   const textWidth = ctx.measureText(dateStr).width;
-
+  const labelWidth = textWidth + 8;
+  
+  // Clamp X position so the label doesn't go off screen
+  const halfWidth = labelWidth / 2;
+  const clampedX = Math.max(halfWidth, Math.min(width - halfWidth, x));
+  
   ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-  ctx.fillRect(x - textWidth / 2 - 4, plot.y + plot.h + 10, textWidth + 8, 18);
-
+  ctx.fillRect(clampedX - halfWidth, plot.y + plot.h + 10, labelWidth, 18);
+  
   ctx.fillStyle = "#1e293b";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText(dateStr, x, plot.y + plot.h + 12);
+  ctx.fillText(dateStr, clampedX, plot.y + plot.h + 12);
 
   // Collect points to draw
   const points = fields
