@@ -14,6 +14,7 @@ from .db import (
     count_radiation,
     count_readings,
     init_db,
+    latest_radiation,
     latest_reading,
     query_radiation,
     query_readings,
@@ -36,6 +37,8 @@ class AirMonitorHandler(SimpleHTTPRequestHandler):
             self._handle_readings(parsed.query)
         elif parsed.path == "/api/latest":
             self._json_response({"latest": latest_reading(self.db_path)})
+        elif parsed.path == "/api/radiation/latest":
+            self._json_response({"latest": latest_radiation(self.db_path)})
         elif parsed.path == "/api/radiation":
             self._handle_radiation(parsed.query)
         elif parsed.path == "/api/health":

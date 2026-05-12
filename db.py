@@ -149,6 +149,14 @@ def count_radiation(db_path: str | Path) -> int:
     return int(row["count"])
 
 
+def latest_radiation(db_path: str | Path) -> dict[str, Any] | None:
+    with connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM radiation_readings ORDER BY timestamp DESC, id DESC LIMIT 1"
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def count_readings(db_path: str | Path) -> int:
     with connect(db_path) as conn:
         row = conn.execute("SELECT COUNT(*) AS count FROM readings").fetchone()

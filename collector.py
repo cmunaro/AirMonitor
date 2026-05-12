@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-import pygmc
 
 from .db import init_db, insert_radiation, insert_reading, log_error
 
@@ -114,11 +113,12 @@ class RadiationCollector:
         if self._gc is not None:
             return True
         try:
+            import pygmc
             self._gc = pygmc.connect()
             LOGGER.info("Connected to Geiger counter")
             return True
         except Exception as exc:
-            LOGGER.info("Geiger counter connection attempt failed: %s", exc)
+            LOGGER.warning("Geiger counter connection attempt failed: %s", exc)
             return False
 
     def collect_once(self) -> bool:
@@ -126,7 +126,7 @@ class RadiationCollector:
             return False
         try:
             cpm = self._gc.get_cpm()
-            LOGGER.info("Current CPM: %s", cpm)
+            LOGGER.debug("Current CPM: %s", cpm)
             insert_radiation(self.db_path, int(cpm))
             return True
         except Exception as exc:

@@ -74,6 +74,8 @@ const state = {
   readings: [],
   enabled: new Set(Object.values(GROUPS).flatMap((group) => group.fields)),
   mouseX: null,
+  latestAir: null,
+  latestRad: null,
 };
 
 const chart = document.getElementById("chart");
@@ -156,33 +158,50 @@ function renderToggles() {
 async function loadReadings() {
   const hours = encodeURIComponent(hoursEl.value);
   const endpoint = state.group === "radiation" ? "/api/radiation" : "/api/readings";
+  
   try {
-    const response = await fetch(`${endpoint}?hours=${hours}&max_points=1200`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    // 1. Fetch Chart Data
+    const chartRes = await fetch(`${endpoint}?hours=${hours}&max_points=1200`);
+    if (chartRes.ok) {
+      const payload = await chartRes.json();
+      state.readings = payload.readings || [];
     }
-    const payload = await response.json();
-    state.readings = payload.readings || [];
-    const latest = state.readings[state.readings.length - 1];
-    
-    // Only update metric grids if we have data for the current group
-    if (latest) {
-      renderLatest(latest);
-      renderMetricGrid(latest);
+
+    // 2. Fetch Latest for both (to keep dashboard full)
+    const [airRes, radRes] = await Promise.all([
+      fetch("/api/latest"),
+      fetch("/api/radiation/latest")
+    ]);
+
+    if (airRes.ok) {
+      const airPayload = await airRes.json();
+      state.latestAir = airPayload.latest;
     }
-    
+    if (radRes.ok) {
+      const radPayload = await radRes.json();
+      state.latestRad = radPayload.latest;
+    }
+
+    renderDashboard();
     drawChart();
+    
     const refreshed = new Date().toLocaleTimeString();
     statusEl.textContent = `Updated ${refreshed}`;
   } catch (error) {
-    statusEl.textContent = `Unable to load readings: ${error.message}`;
+    statusEl.textContent = `Unable to load data: ${error.message}`;
   }
 }
 
-function renderLatest(reading) {
+function renderDashboard() {
+  renderLatest();
+  renderMetricGrid();
+}
+
+function renderLatest() {
   latestEl.replaceChildren();
-  const fields = ["score", "temp", "humid", "co2"];
+  const fields = ["score", "temp", "humid", "co2", "cpm"];
   fields.forEach((field) => {
+    const reading = field === "cpm" ? state.latestRad : state.latestAir;
     const item = document.createElement("div");
     item.className = "latest-pill";
     item.innerHTML = `<span class="label">${LABELS[field]}</span><span class="value">${formatValue(reading, field)}</span>`;
@@ -190,9 +209,10 @@ function renderLatest(reading) {
   });
 }
 
-function renderMetricGrid(reading) {
+function renderMetricGrid() {
   metricGridEl.replaceChildren();
   Object.values(GROUPS).flatMap((group) => group.fields).forEach((field) => {
+    const reading = field === "cpm" ? state.latestRad : state.latestAir;
     const item = document.createElement("div");
     item.className = "metric";
     item.innerHTML = `<span class="label">${LABELS[field]}</span><span class="value">${formatValue(reading, field)}</span>`;
