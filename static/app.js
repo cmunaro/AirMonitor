@@ -5,11 +5,11 @@ const GROUPS = {
   },
   co2: {
     title: "CO2",
-    fields: ["co2", "co2_est", "co2_est_baseline"],
+    fields: ["co2", "co2_est"],
   },
   voc: {
     title: "VOC",
-    fields: ["voc", "voc_baseline", "voc_h2_raw", "voc_ethanol_raw"],
+    fields: ["voc", "voc_h2_raw", "voc_ethanol_raw"],
   },
   particulates: {
     title: "Particulates",
@@ -29,9 +29,7 @@ const LABELS = {
   abs_humid: "Abs. humidity",
   co2: "CO2",
   co2_est: "CO2 estimate",
-  co2_est_baseline: "CO2 baseline",
   voc: "VOC",
-  voc_baseline: "VOC baseline",
   voc_h2_raw: "VOC H2 raw",
   voc_ethanol_raw: "VOC ethanol raw",
   pm25: "PM2.5",
@@ -57,9 +55,7 @@ const COLORS = {
   abs_humid: "#8b6bb8",
   co2: "#b14f9b",
   co2_est: "#7d6a1f",
-  co2_est_baseline: "#5f6975",
   voc: "#b65f19",
-  voc_baseline: "#626b2f",
   voc_h2_raw: "#237a77",
   voc_ethanol_raw: "#8f4d64",
   pm25: "#3a78bf",

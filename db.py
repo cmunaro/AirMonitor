@@ -16,9 +16,7 @@ READING_FIELDS = (
     "abs_humid",
     "co2",
     "co2_est",
-    "co2_est_baseline",
     "voc",
-    "voc_baseline",
     "voc_h2_raw",
     "voc_ethanol_raw",
     "pm25",
@@ -58,9 +56,7 @@ def init_db(db_path: str | Path) -> None:
                 abs_humid REAL NOT NULL,
                 co2 REAL NOT NULL,
                 co2_est REAL NOT NULL,
-                co2_est_baseline REAL NOT NULL,
                 voc REAL NOT NULL,
-                voc_baseline REAL NOT NULL,
                 voc_h2_raw REAL NOT NULL,
                 voc_ethanol_raw REAL NOT NULL,
                 pm25 REAL NOT NULL,
@@ -174,7 +170,7 @@ def query_readings(
         rows = conn.execute(
             """
             SELECT id, timestamp, fetched_at, score, dew_point, temp, humid, abs_humid,
-                   co2, co2_est, co2_est_baseline, voc, voc_baseline,
+                   co2, co2_est, voc,
                    voc_h2_raw, voc_ethanol_raw, pm25, pm10_est
             FROM readings
             WHERE fetched_at >= ?
