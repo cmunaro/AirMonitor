@@ -271,4 +271,6 @@ def query_radiation(
 
     stride = len(data) / max_points
     sampled = [data[int(index * stride)] for index in range(max_points)]
+    if sampled[-1]["id"] != data[-1]["id"]:
+        sampled[-1] = data[-1]
     return sampled

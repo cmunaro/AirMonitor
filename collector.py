@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+import sys
 
 from .db import init_db, insert_radiation, insert_reading, log_error
 
@@ -114,7 +115,10 @@ class RadiationCollector:
             return True
         try:
             import pygmc
+            print("Connecting to Geiger counter...", flush=True)
             self._gc = pygmc.connect()
+            # Stabilization delay
+            time.sleep(1.0)
             LOGGER.info("Connected to Geiger counter")
             return True
         except Exception as exc:
@@ -124,15 +128,21 @@ class RadiationCollector:
     def collect_once(self) -> bool:
         if not self._connect():
             return False
-        try:
-            cpm = self._gc.get_cpm()
-            LOGGER.debug("Current CPM: %s", cpm)
-            insert_radiation(self.db_path, int(cpm))
-            return True
-        except Exception as exc:
-            LOGGER.warning("Geiger counter read failed, resetting connection: %s", exc)
-            self._gc = None  # Force reconnect on next cycle
-            return False
+            
+        # Try up to 2 times for transient serial glitches
+        for attempt in range(2):
+            try:
+                cpm = self._gc.get_cpm()
+                insert_radiation(self.db_path, int(cpm))
+                return True
+            except Exception as exc:
+                if attempt == 0:
+                    LOGGER.warning("Geiger first read attempt failed: %s", exc)
+                    time.sleep(0.5)
+                    continue
+                LOGGER.error("Geiger counter read failed: %s", exc)
+                self._gc = None  # Force reconnect on next cycle
+                return False
 
     def run_forever(self, stop_event: threading.Event | None = None) -> None:
         stop_event = stop_event or threading.Event()

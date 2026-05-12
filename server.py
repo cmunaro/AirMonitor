@@ -48,6 +48,7 @@ class AirMonitorHandler(SimpleHTTPRequestHandler):
                     "readings": count_readings(self.db_path),
                     "radiation_readings": count_radiation(self.db_path),
                     "latest": latest_reading(self.db_path),
+                    "latest_radiation": latest_radiation(self.db_path),
                     "recent_errors": recent_errors(self.db_path, limit=10),
                 }
             )
