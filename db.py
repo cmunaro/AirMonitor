@@ -176,7 +176,7 @@ def count_radiation(db_path: str | Path) -> int:
 def latest_radiation(db_path: str | Path) -> dict[str, Any] | None:
     with connect(db_path) as conn:
         row = conn.execute(
-            "SELECT * FROM radiation_readings ORDER BY timestamp DESC, id DESC LIMIT 1"
+            "SELECT * FROM radiation_readings ORDER BY id DESC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
 
@@ -274,3 +274,83 @@ def query_radiation(
     if sampled[-1]["id"] != data[-1]["id"]:
         sampled[-1] = data[-1]
     return sampled
+
+
+def compact_all_tables(db_path: str | Path) -> None:
+    """Run compaction for all sensor tables."""
+    # Compact air quality readings
+    compact_table(db_path, "readings", READING_FIELDS)
+    # Compact radiation readings
+    compact_table(db_path, "radiation_readings", ("cpm",))
+
+
+def compact_table(db_path: str | Path, table: str, fields: tuple[str, ...]) -> None:
+    """Collapses hours older than the current one into 20 representative points."""
+    # 1. Identify "full" hours in the past
+    current_hour = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+    
+    with connect(db_path) as conn:
+        # Group by hour string (YYYY-MM-DDTHH:00:00Z)
+        hours_rows = conn.execute(
+            f"""
+            SELECT substr(timestamp, 1, 14) || '00:00Z' as hour_key, COUNT(*) as count
+            FROM {table}
+            WHERE timestamp < ?
+            GROUP BY hour_key
+            HAVING count > 20
+            """,
+            (current_hour,),
+        ).fetchall()
+
+        for row in hours_rows:
+            hour_key = row["hour_key"]
+            _compact_hour(conn, table, fields, hour_key)
+
+
+def _compact_hour(conn: sqlite3.Connection, table: str, fields: tuple[str, ...], hour_key: str) -> None:
+    """Reduces a single hour's data to 20 averaged points."""
+    # Fetch all data for this hour
+    # We use a pattern match because substr in SQLite is sensitive to format
+    pattern = hour_key[:13] + "%"
+    rows = conn.execute(
+        f"SELECT * FROM {table} WHERE timestamp LIKE ? ORDER BY timestamp ASC",
+        (pattern,),
+    ).fetchall()
+    
+    if len(rows) <= 20:
+        return
+
+    data = [dict(r) for r in rows]
+    chunk_size = len(data) / 20.0
+    collapsed = []
+
+    for i in range(20):
+        start = int(i * chunk_size)
+        end = int((i + 1) * chunk_size)
+        if i == 19: end = len(data) # Ensure last chunk reaches the end
+        
+        chunk = data[start:end]
+        if not chunk: continue
+
+        # Average the values
+        new_point = {
+            "timestamp": chunk[len(chunk)//2]["timestamp"], # Use middle timestamp
+        }
+        if "fetched_at" in chunk[0]:
+            new_point["fetched_at"] = chunk[len(chunk)//2]["fetched_at"]
+        for field in fields:
+            vals = [c[field] for c in chunk if c[field] is not None]
+            new_point[field] = sum(vals) / len(vals) if vals else 0.0
+
+        collapsed.append(new_point)
+
+    # Replace original data with collapsed data in a transaction
+    conn.execute(f"DELETE FROM {table} WHERE timestamp LIKE ?", (pattern,))
+    
+    placeholders = ", ".join("?" for _ in collapsed[0].keys())
+    columns = ", ".join(collapsed[0].keys())
+    conn.executemany(
+        f"INSERT OR REPLACE INTO {table} ({columns}) VALUES ({placeholders})",
+        [tuple(p.values()) for p in collapsed]
+    )
+    LOGGER.info("Compacted hour %s in %s (from %s to 20 points)", hour_key, table, len(rows))

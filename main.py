@@ -7,7 +7,10 @@ import logging
 import signal
 import sys
 import threading
+import time
 from pathlib import Path
+
+LOGGER = logging.getLogger(__name__)
 
 from .collector import AirDataCollector, CollectorConfig, RadiationCollector
 from .config import (
@@ -18,7 +21,7 @@ from .config import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT_SECONDS,
 )
-from .db import init_db
+from .db import compact_all_tables, init_db
 from .server import make_server
 
 
@@ -87,6 +90,27 @@ def _run(args: argparse.Namespace) -> int:
         daemon=True,
     )
     rad_thread.start()
+    
+    def run_maintenance():
+        LOGGER.info("Maintenance thread started")
+        while not stop_event.is_set():
+            try:
+                compact_all_tables(args.db)
+            except Exception as exc:
+                LOGGER.error("Maintenance task failed: %s", exc)
+            
+            # Wait for 1 hour, but check stop_event periodically
+            for _ in range(3600):
+                if stop_event.is_set():
+                    break
+                time.sleep(1)
+
+    maint_thread = threading.Thread(
+        target=run_maintenance,
+        name="air-monitor-maintenance",
+        daemon=True,
+    )
+    maint_thread.start()
 
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()
@@ -102,6 +126,7 @@ def _run(args: argparse.Namespace) -> int:
         stop_event.set()
         collector_thread.join(timeout=5)
         rad_thread.join(timeout=5)
+        maint_thread.join(timeout=2)
         httpd.server_close()
     return 0
 
