@@ -158,38 +158,40 @@ function renderToggles() {
 async function loadReadings() {
   const hours = encodeURIComponent(hoursEl.value);
   const endpoint = state.group === "radiation" ? "/api/radiation" : "/api/readings";
-  
+
+  // 1. Fetch Chart Data (Specific to current tab)
   try {
-    // 1. Fetch Chart Data
     const chartRes = await fetch(`${endpoint}?hours=${hours}&max_points=1200`);
     if (chartRes.ok) {
       const payload = await chartRes.json();
       state.readings = payload.readings || [];
+      drawChart();
     }
+  } catch (err) {
+    console.error("Chart load failed:", err);
+  }
 
-    // 2. Fetch Latest for both (to keep dashboard full)
-    const [airRes, radRes] = await Promise.all([
-      fetch("/api/latest"),
-      fetch("/api/radiation/latest")
+  // 2. Fetch Latest Metrics (Always fetch both)
+  try {
+    const [airRes, radRes] = await Promise.allSettled([
+      fetch("/api/latest").then(r => r.ok ? r.json() : null),
+      fetch("/api/radiation/latest").then(r => r.ok ? r.json() : null)
     ]);
 
-    if (airRes.ok) {
-      const airPayload = await airRes.json();
-      state.latestAir = airPayload.latest;
+    if (airRes.status === "fulfilled" && airRes.value) {
+      state.latestAir = airRes.value.latest;
     }
-    if (radRes.ok) {
-      const radPayload = await radRes.json();
-      state.latestRad = radPayload.latest;
+    if (radRes.status === "fulfilled" && radRes.value) {
+      state.latestRad = radRes.value.latest;
     }
 
     renderDashboard();
-    drawChart();
-    
-    const refreshed = new Date().toLocaleTimeString();
-    statusEl.textContent = `Updated ${refreshed}`;
-  } catch (error) {
-    statusEl.textContent = `Unable to load data: ${error.message}`;
+  } catch (err) {
+    console.error("Metrics load failed:", err);
   }
+
+  const refreshed = new Date().toLocaleTimeString();
+  statusEl.textContent = `Updated ${refreshed}`;
 }
 
 function renderDashboard() {
@@ -391,10 +393,10 @@ function drawTooltip(plot, fields, min, max) {
   const dateStr = date.toLocaleString();
   ctx.font = "bold 12px system-ui, sans-serif";
   const textWidth = ctx.measureText(dateStr).width;
-  
+
   ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
   ctx.fillRect(x - textWidth / 2 - 4, plot.y + plot.h + 10, textWidth + 8, 18);
-  
+
   ctx.fillStyle = "#1e293b";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
@@ -427,7 +429,7 @@ function drawTooltip(plot, fields, min, max) {
     // Dot (always at the original Y intersection)
     const value = reading[p.field];
     const originalY = plot.y + plot.h - ((value - min) / (max - min)) * plot.h;
-    
+
     ctx.fillStyle = COLORS[p.field];
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;

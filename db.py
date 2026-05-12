@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+LOGGER = logging.getLogger(__name__)
 
 
 READING_FIELDS = (
@@ -43,6 +46,15 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
 
 def init_db(db_path: str | Path) -> None:
     with connect(db_path) as conn:
+        # Check for schema mismatch (legacy columns)
+        table_info = conn.execute("PRAGMA table_info(readings)").fetchall()
+        column_names = {row["name"] for row in table_info}
+        
+        if column_names and "co2_est_baseline" in column_names:
+            LOGGER.warning("Schema mismatch detected, recreating readings table...")
+            conn.execute("DROP TABLE readings")
+            # We don't drop radiation_readings as it's new/independent
+
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS readings (
@@ -111,6 +123,17 @@ def normalize_reading(payload: dict[str, Any]) -> dict[str, Any]:
 
 def insert_reading(db_path: str | Path, payload: dict[str, Any]) -> bool:
     reading = normalize_reading(payload)
+    
+    # Deduplication: Check if values changed compared to the last entry
+    latest = latest_reading(db_path)
+    if latest:
+        is_duplicate = all(
+            abs(float(latest[field]) - float(reading[field])) < 1e-7
+            for field in READING_FIELDS
+        )
+        if is_duplicate:
+            return False
+
     fields_sql = ", ".join(("timestamp", "fetched_at") + READING_FIELDS)
     placeholders = ", ".join("?" for _ in ("timestamp", "fetched_at") + READING_FIELDS)
     values = [reading["timestamp"], utc_now_iso()]
@@ -118,10 +141,11 @@ def insert_reading(db_path: str | Path, payload: dict[str, Any]) -> bool:
 
     with connect(db_path) as conn:
         cur = conn.execute(
-            f"INSERT OR IGNORE INTO readings ({fields_sql}) VALUES ({placeholders})",
+            f"INSERT OR REPLACE INTO readings ({fields_sql}) VALUES ({placeholders})",
             values,
         )
-        return cur.rowcount == 1
+        # rowcount is 1 for new insert, 1 or 2 for replace
+        return cur.rowcount >= 1
 
 
 def log_error(db_path: str | Path, stage: str, message: str) -> None:
@@ -138,7 +162,7 @@ def log_error(db_path: str | Path, stage: str, message: str) -> None:
 def latest_reading(db_path: str | Path) -> dict[str, Any] | None:
     with connect(db_path) as conn:
         row = conn.execute(
-            "SELECT * FROM readings ORDER BY timestamp DESC, id DESC LIMIT 1"
+            "SELECT * FROM readings ORDER BY id DESC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
 
