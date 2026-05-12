@@ -366,29 +366,68 @@ function drawTooltip(plot, fields, min, max) {
   ctx.textBaseline = "top";
   ctx.fillText(dateStr, x, plot.y + plot.h + 12);
 
-  // Intersection dots and values
-  fields.forEach((field) => {
-    const value = reading[field];
-    if (!Number.isFinite(value)) return;
+  // Collect points to draw
+  const points = fields
+    .map((field) => {
+      const value = reading[field];
+      if (!Number.isFinite(value)) return null;
+      return {
+        field,
+        text: formatValue(reading, field),
+        y: plot.y + plot.h - ((value - min) / (max - min)) * plot.h,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.y - b.y);
 
-    const y = plot.y + plot.h - ((value - min) / (max - min)) * plot.h;
+  // Adjust Y positions to avoid overlap
+  const minSpacing = 20;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].y < points[i - 1].y + minSpacing) {
+      points[i].y = points[i - 1].y + minSpacing;
+    }
+  }
 
-    // Dot
-    ctx.fillStyle = COLORS[field];
+  // Draw dots and adjusted labels
+  points.forEach((p) => {
+    // Dot (always at the original Y intersection)
+    const value = reading[p.field];
+    const originalY = plot.y + plot.h - ((value - min) / (max - min)) * plot.h;
+    
+    ctx.fillStyle = COLORS[p.field];
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.arc(x, originalY, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
+    // Line connecting dot to adjusted label (if moved)
+    if (Math.abs(p.y - originalY) > 1) {
+      ctx.strokeStyle = COLORS[p.field];
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(x, originalY);
+      ctx.lineTo(x > plot.x + plot.w / 2 ? x - 5 : x + 5, p.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     // Value text
-    ctx.fillStyle = COLORS[field];
     ctx.font = "bold 12px system-ui, sans-serif";
+    const valWidth = ctx.measureText(p.text).width;
     ctx.textAlign = x > plot.x + plot.w / 2 ? "right" : "left";
     ctx.textBaseline = "middle";
     const offset = x > plot.x + plot.w / 2 ? -10 : 10;
-    ctx.fillText(formatValue(reading, field), x + offset, y);
+
+    // Background for legibility
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    const rectX = x > plot.x + plot.w / 2 ? x + offset - valWidth - 4 : x + offset - 4;
+    ctx.fillRect(rectX, p.y - 10, valWidth + 8, 20);
+
+    ctx.fillStyle = COLORS[p.field];
+    ctx.fillText(p.text, x + offset, p.y);
   });
 }
 
