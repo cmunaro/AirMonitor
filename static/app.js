@@ -215,7 +215,6 @@ function renderMetricGrid() {
   metricGridEl.replaceChildren();
   Object.values(GROUPS)
     .flatMap((group) => group.fields)
-    .filter((field) => field !== "cpm")
     .forEach((field) => {
       const reading = field === "cpm" ? state.latestRad : state.latestAir;
       const item = document.createElement("div");
