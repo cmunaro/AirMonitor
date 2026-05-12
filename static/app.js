@@ -66,6 +66,7 @@ const state = {
   group: "comfort",
   readings: [],
   enabled: new Set(Object.values(GROUPS).flatMap((group) => group.fields)),
+  mouseX: null,
 };
 
 const chart = document.getElementById("chart");
@@ -84,6 +85,15 @@ function init() {
   renderToggles();
   hoursEl.addEventListener("change", loadReadings);
   window.addEventListener("resize", drawChart);
+  chart.addEventListener("mousemove", (e) => {
+    const rect = chart.getBoundingClientRect();
+    state.mouseX = e.clientX - rect.left;
+    drawChart();
+  });
+  chart.addEventListener("mouseleave", () => {
+    state.mouseX = null;
+    drawChart();
+  });
   loadReadings();
   setInterval(loadReadings, 10000);
 }
@@ -228,6 +238,9 @@ function drawChart() {
   drawXAxis(plot);
 
   fields.forEach((field) => drawSeries(plot, field, min, max));
+  if (state.mouseX !== null) {
+    drawTooltip(plot, fields, min, max);
+  }
 }
 
 function drawFrame(plot) {
@@ -314,6 +327,69 @@ function compactNumber(value) {
     return value.toFixed(0);
   }
   return value.toFixed(1);
+}
+
+function drawTooltip(plot, fields, min, max) {
+  if (!state.readings.length || state.mouseX < plot.x || state.mouseX > plot.x + plot.w) {
+    return;
+  }
+
+  const index = Math.round(
+    ((state.mouseX - plot.x) / plot.w) * (state.readings.length - 1)
+  );
+  const reading = state.readings[index];
+  if (!reading) return;
+
+  const x = plot.x + (plot.w * index) / Math.max(1, state.readings.length - 1);
+
+  // Vertical line
+  ctx.strokeStyle = "#94a3b8";
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, plot.y);
+  ctx.lineTo(x, plot.y + plot.h);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Timestamp
+  const date = new Date(reading.timestamp);
+  const dateStr = date.toLocaleString();
+  ctx.font = "bold 12px system-ui, sans-serif";
+  const textWidth = ctx.measureText(dateStr).width;
+  
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.fillRect(x - textWidth / 2 - 4, plot.y + plot.h + 10, textWidth + 8, 18);
+  
+  ctx.fillStyle = "#1e293b";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(dateStr, x, plot.y + plot.h + 12);
+
+  // Intersection dots and values
+  fields.forEach((field) => {
+    const value = reading[field];
+    if (!Number.isFinite(value)) return;
+
+    const y = plot.y + plot.h - ((value - min) / (max - min)) * plot.h;
+
+    // Dot
+    ctx.fillStyle = COLORS[field];
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Value text
+    ctx.fillStyle = COLORS[field];
+    ctx.font = "bold 12px system-ui, sans-serif";
+    ctx.textAlign = x > plot.x + plot.w / 2 ? "right" : "left";
+    ctx.textBaseline = "middle";
+    const offset = x > plot.x + plot.w / 2 ? -10 : 10;
+    ctx.fillText(formatValue(reading, field), x + offset, y);
+  });
 }
 
 init();
