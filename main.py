@@ -9,7 +9,7 @@ import sys
 import threading
 from pathlib import Path
 
-from .collector import AirDataCollector, CollectorConfig
+from .collector import AirDataCollector, CollectorConfig, RadiationCollector
 from .config import (
     DEFAULT_DB_PATH,
     DEFAULT_ENDPOINT,
@@ -78,6 +78,15 @@ def _run(args: argparse.Namespace) -> int:
         daemon=True,
     )
     collector_thread.start()
+    
+    rad_collector = RadiationCollector(args.db)
+    rad_thread = threading.Thread(
+        target=rad_collector.run_forever,
+        args=(stop_event,),
+        name="radiation-collector",
+        daemon=True,
+    )
+    rad_thread.start()
 
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()
@@ -92,6 +101,7 @@ def _run(args: argparse.Namespace) -> int:
     finally:
         stop_event.set()
         collector_thread.join(timeout=5)
+        rad_thread.join(timeout=5)
         httpd.server_close()
     return 0
 

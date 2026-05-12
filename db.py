@@ -69,6 +69,15 @@ def init_db(db_path: str | Path) -> None:
             CREATE INDEX IF NOT EXISTS idx_readings_timestamp
                 ON readings (timestamp);
 
+            CREATE TABLE IF NOT EXISTS radiation_readings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                cpm INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_radiation_readings_timestamp
+                ON radiation_readings (timestamp);
+
             CREATE TABLE IF NOT EXISTS collector_errors (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 occurred_at TEXT NOT NULL,
@@ -134,6 +143,12 @@ def latest_reading(db_path: str | Path) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+def count_radiation(db_path: str | Path) -> int:
+    with connect(db_path) as conn:
+        row = conn.execute("SELECT COUNT(*) AS count FROM radiation_readings").fetchone()
+    return int(row["count"])
+
+
 def count_readings(db_path: str | Path) -> int:
     with connect(db_path) as conn:
         row = conn.execute("SELECT COUNT(*) AS count FROM readings").fetchone()
@@ -187,4 +202,41 @@ def query_readings(
     sampled = [data[int(index * stride)] for index in range(max_points)]
     if sampled[-1]["id"] != data[-1]["id"]:
         sampled[-1] = data[-1]
+    return sampled
+def insert_radiation(db_path: str | Path, cpm: int) -> None:
+    with connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO radiation_readings (timestamp, cpm) VALUES (?, ?)",
+            (utc_now_iso(), cpm),
+        )
+
+
+def query_radiation(
+    db_path: str | Path,
+    hours: float = 24,
+    max_points: int = 1200,
+) -> list[dict[str, Any]]:
+    hours = max(0.05, min(float(hours), 24 * 31))
+    max_points = max(50, min(int(max_points), 5000))
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(hours=hours)
+    ).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    with connect(db_path) as conn:
+        rows = conn.execute(
+            """
+            SELECT id, timestamp, cpm
+            FROM radiation_readings
+            WHERE timestamp >= ?
+            ORDER BY timestamp ASC, id ASC
+            """,
+            (cutoff,),
+        ).fetchall()
+
+    data = [dict(row) for row in rows]
+    if len(data) <= max_points:
+        return data
+
+    stride = len(data) / max_points
+    sampled = [data[int(index * stride)] for index in range(max_points)]
     return sampled

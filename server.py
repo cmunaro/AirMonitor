@@ -10,7 +10,15 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .db import count_readings, init_db, latest_reading, query_readings, recent_errors
+from .db import (
+    count_radiation,
+    count_readings,
+    init_db,
+    latest_reading,
+    query_radiation,
+    query_readings,
+    recent_errors,
+)
 
 LOGGER = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).with_name("static")
@@ -28,11 +36,14 @@ class AirMonitorHandler(SimpleHTTPRequestHandler):
             self._handle_readings(parsed.query)
         elif parsed.path == "/api/latest":
             self._json_response({"latest": latest_reading(self.db_path)})
+        elif parsed.path == "/api/radiation":
+            self._handle_radiation(parsed.query)
         elif parsed.path == "/api/health":
             self._json_response(
                 {
                     "ok": True,
                     "readings": count_readings(self.db_path),
+                    "radiation_readings": count_radiation(self.db_path),
                     "latest": latest_reading(self.db_path),
                     "recent_errors": recent_errors(self.db_path, limit=10),
                 }
@@ -54,6 +65,20 @@ class AirMonitorHandler(SimpleHTTPRequestHandler):
         self._json_response(
             {
                 "readings": query_readings(
+                    self.db_path,
+                    hours=hours,
+                    max_points=max_points,
+                )
+            }
+        )
+
+    def _handle_radiation(self, query: str) -> None:
+        params = parse_qs(query)
+        hours = _first_float(params, "hours", 24)
+        max_points = _first_int(params, "max_points", 1200)
+        self._json_response(
+            {
+                "readings": query_radiation(
                     self.db_path,
                     hours=hours,
                     max_points=max_points,

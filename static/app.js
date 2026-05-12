@@ -19,6 +19,10 @@ const GROUPS = {
     title: "Score",
     fields: ["score"],
   },
+  radiation: {
+    title: "Radiation",
+    fields: ["cpm"],
+  },
 };
 
 const LABELS = {
@@ -34,6 +38,7 @@ const LABELS = {
   voc_ethanol_raw: "VOC ethanol raw",
   pm25: "PM2.5",
   pm10_est: "PM10 estimate",
+  cpm: "CPM",
 };
 
 const UNITS = {
@@ -45,6 +50,7 @@ const UNITS = {
   co2_est: " ppm",
   pm25: " ug/m3",
   pm10_est: " ug/m3",
+  cpm: " cpm",
 };
 
 const COLORS = {
@@ -60,6 +66,7 @@ const COLORS = {
   voc_ethanol_raw: "#8f4d64",
   pm25: "#3a78bf",
   pm10_est: "#72913a",
+  cpm: "#d32f2f",
 };
 
 const state = {
@@ -107,9 +114,10 @@ function renderGroupButtons() {
     button.className = key === state.group ? "active" : "";
     button.addEventListener("click", () => {
       state.group = key;
+      state.readings = [];
       renderGroupButtons();
       renderToggles();
-      drawChart();
+      loadReadings();
     });
     groupsEl.append(button);
   });
@@ -147,16 +155,22 @@ function renderToggles() {
 
 async function loadReadings() {
   const hours = encodeURIComponent(hoursEl.value);
+  const endpoint = state.group === "radiation" ? "/api/radiation" : "/api/readings";
   try {
-    const response = await fetch(`/api/readings?hours=${hours}&max_points=1200`);
+    const response = await fetch(`${endpoint}?hours=${hours}&max_points=1200`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const payload = await response.json();
     state.readings = payload.readings || [];
     const latest = state.readings[state.readings.length - 1];
-    renderLatest(latest);
-    renderMetricGrid(latest);
+    
+    // Only update metric grids if we have data for the current group
+    if (latest) {
+      renderLatest(latest);
+      renderMetricGrid(latest);
+    }
+    
     drawChart();
     const refreshed = new Date().toLocaleTimeString();
     statusEl.textContent = `Updated ${refreshed}`;

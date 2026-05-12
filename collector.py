@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+import pygmc
 
-from .db import init_db, insert_reading, log_error
+from .db import init_db, insert_radiation, insert_reading, log_error
 
 LOGGER = logging.getLogger(__name__)
 
@@ -101,3 +102,45 @@ class AirDataCollector:
             log_error(self.config.db_path, stage, message)
         except OSError:
             LOGGER.exception("Failed to persist collector error")
+
+
+class RadiationCollector:
+    def __init__(self, db_path: Path, interval_seconds: int = 2):
+        self.db_path = db_path
+        self.interval_seconds = interval_seconds
+        self._gc = None
+
+    def _connect(self):
+        if self._gc is not None:
+            return True
+        try:
+            self._gc = pygmc.connect()
+            LOGGER.info("Connected to Geiger counter")
+            return True
+        except Exception as exc:
+            LOGGER.info("Geiger counter connection attempt failed: %s", exc)
+            return False
+
+    def collect_once(self) -> bool:
+        if not self._connect():
+            return False
+        try:
+            cpm = self._gc.get_cpm()
+            LOGGER.info("Current CPM: %s", cpm)
+            insert_radiation(self.db_path, int(cpm))
+            return True
+        except Exception as exc:
+            LOGGER.warning("Geiger counter read failed, resetting connection: %s", exc)
+            self._gc = None  # Force reconnect on next cycle
+            return False
+
+    def run_forever(self, stop_event: threading.Event | None = None) -> None:
+        stop_event = stop_event or threading.Event()
+        LOGGER.info("Radiation collector started interval=%ss", self.interval_seconds)
+        while not stop_event.is_set():
+            started = time.monotonic()
+            self.collect_once()
+            elapsed = time.monotonic() - started
+            delay = max(0.1, self.interval_seconds - elapsed)
+            stop_event.wait(delay)
+        LOGGER.info("Radiation collector stopped")
