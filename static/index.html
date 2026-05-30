@@ -43,6 +43,24 @@
         <h2>Recent Values</h2>
         <div class="metric-grid" id="metric-grid"></div>
       </section>
+
+      <section class="details">
+        <details id="diagnostics">
+          <summary>
+            <span>Diagnostics</span>
+            <span class="diag-badge" id="diag-badge">No errors</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-stats" id="diag-stats"></div>
+            <table class="diag-table">
+              <thead>
+                <tr><th>Time</th><th>Stage</th><th>Message</th></tr>
+              </thead>
+              <tbody id="diag-rows"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
     </main>
 
     <script src="/static/app.js" defer></script>

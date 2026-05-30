@@ -88,6 +88,9 @@ const hoursEl = document.getElementById("hours");
 const titleEl = document.getElementById("chart-title");
 const pointCountEl = document.getElementById("point-count");
 const metricGridEl = document.getElementById("metric-grid");
+const diagBadgeEl = document.getElementById("diag-badge");
+const diagStatsEl = document.getElementById("diag-stats");
+const diagRowsEl = document.getElementById("diag-rows");
 
 function init() {
   renderGroupButtons();
@@ -104,7 +107,66 @@ function init() {
     drawChart();
   });
   loadReadings();
+  loadDiagnostics();
   setInterval(loadReadings, 10000);
+  setInterval(loadDiagnostics, 30000);
+}
+
+async function loadDiagnostics() {
+  let payload;
+  try {
+    const res = await fetch("/api/errors?limit=20");
+    if (!res.ok) return;
+    payload = await res.json();
+  } catch (err) {
+    console.error("Diagnostics load failed:", err);
+    return;
+  }
+  renderDiagnostics(payload.stats || {}, payload.errors || []);
+}
+
+function renderDiagnostics(stats, errors) {
+  const total = stats.total || 0;
+  const last24 = stats.last_24h || 0;
+
+  diagBadgeEl.textContent = total === 0 ? "No errors" : `${last24} in 24h / ${total} total`;
+  diagBadgeEl.classList.toggle("ok", total === 0);
+  diagBadgeEl.classList.toggle("warn", total > 0);
+
+  diagStatsEl.replaceChildren();
+  const stat = (label, value) => {
+    const el = document.createElement("div");
+    el.className = "diag-stat";
+    el.innerHTML = `<span class="label">${label}</span><span class="value">${value}</span>`;
+    return el;
+  };
+  diagStatsEl.append(
+    stat("Total", total),
+    stat("Last 24h", last24),
+    stat("Last error", stats.last_at ? new Date(stats.last_at).toLocaleString() : "-")
+  );
+  (stats.by_stage || []).forEach((s) => diagStatsEl.append(stat(s.stage, s.count)));
+
+  diagRowsEl.replaceChildren();
+  if (!errors.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="3" class="diag-empty">No errors recorded</td>`;
+    diagRowsEl.append(tr);
+    return;
+  }
+  errors.forEach((e) => {
+    const tr = document.createElement("tr");
+    const time = document.createElement("td");
+    time.textContent = new Date(e.occurred_at).toLocaleString();
+    const stage = document.createElement("td");
+    stage.textContent = e.stage;
+    const message = document.createElement("td");
+    message.className = "diag-msg";
+    message.textContent = e.message;
+    message.title = e.message;
+    tr.append(time, stage, message);
+    diagRowsEl.append(tr);
+  });
 }
 
 function renderGroupButtons() {

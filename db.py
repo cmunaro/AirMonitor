@@ -227,6 +227,36 @@ def recent_errors(db_path: str | Path, limit: int = 20) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def error_stats(db_path: str | Path) -> dict[str, Any]:
+    """Aggregate collector error counts for the diagnostics panel."""
+    cutoff_24h = (
+        datetime.now(timezone.utc) - timedelta(hours=24)
+    ).isoformat(timespec="seconds").replace("+00:00", "Z")
+    with connect(db_path) as conn:
+        total = conn.execute("SELECT COUNT(*) AS c FROM collector_errors").fetchone()["c"]
+        last_24h = conn.execute(
+            "SELECT COUNT(*) AS c FROM collector_errors WHERE occurred_at >= ?",
+            (cutoff_24h,),
+        ).fetchone()["c"]
+        last_at = conn.execute(
+            "SELECT MAX(occurred_at) AS t FROM collector_errors"
+        ).fetchone()["t"]
+        by_stage = conn.execute(
+            """
+            SELECT stage, COUNT(*) AS count
+            FROM collector_errors
+            GROUP BY stage
+            ORDER BY count DESC, stage ASC
+            """
+        ).fetchall()
+    return {
+        "total": int(total),
+        "last_24h": int(last_24h),
+        "last_at": last_at,
+        "by_stage": [dict(row) for row in by_stage],
+    }
+
+
 def query_readings(
     db_path: str | Path,
     hours: float = 24,

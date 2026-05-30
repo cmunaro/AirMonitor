@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from .db import (
     count_radiation,
     count_readings,
+    error_stats,
     init_db,
     latest_radiation,
     latest_reading,
@@ -45,6 +46,15 @@ class AirMonitorHandler(BaseHTTPRequestHandler):
             self._json_response({"latest": latest_radiation(self.db_path)})
         elif parsed.path == "/api/radiation":
             self._handle_radiation(parsed.query)
+        elif parsed.path == "/api/errors":
+            params = parse_qs(parsed.query)
+            limit = _first_int(params, "limit", 20)
+            self._json_response(
+                {
+                    "stats": error_stats(self.db_path),
+                    "errors": recent_errors(self.db_path, limit=limit),
+                }
+            )
         elif parsed.path == "/api/health":
             self._json_response(
                 {
