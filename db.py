@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -37,7 +39,15 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def connect(db_path: str | Path) -> sqlite3.Connection:
+@contextmanager
+def connect(db_path: str | Path) -> Iterator[sqlite3.Connection]:
+    """Open a configured connection, commit/rollback, and always close it.
+
+    Used as ``with connect(path) as conn:``. The inner ``with conn`` gives the
+    usual sqlite3 transaction semantics (commit on success, rollback on error);
+    the outer ``finally`` guarantees the connection is closed -- a bare
+    ``with sqlite3.connect(...)`` commits but never closes, leaking the handle.
+    """
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -48,7 +58,11 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     # Multiple writer threads (collectors + maintenance) contend for the write
     # lock; wait instead of failing immediately with "database is locked".
     conn.execute("PRAGMA busy_timeout=5000")
-    return conn
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
 
 
 def init_db(db_path: str | Path) -> None:
@@ -313,14 +327,19 @@ def compact_table(db_path: str | Path, table: str, fields: tuple[str, ...]) -> N
             (current_hour,),
         ).fetchall()
 
-        for row in hours_rows:
-            hour_key = row["hour_key"]
-            # Air readings carry a sensor-supplied timestamp; if it is not the
-            # expected ISO "YYYY-MM-DDTHH:..." UTC form the hour bucketing is
-            # meaningless, so skip rather than collapse unrelated rows together.
-            if not _is_iso_hour_key(hour_key):
-                LOGGER.warning("Skipping compaction for malformed hour key %r in %s", hour_key, table)
-                continue
+    # Compact each hour in its own transaction so the write lock is released
+    # between hours. A single transaction spanning every historical hour would
+    # block the collectors for the whole run (worst on the first run after a
+    # backlog builds up); per-hour commits keep that window to one hour's rows.
+    for row in hours_rows:
+        hour_key = row["hour_key"]
+        # Air readings carry a sensor-supplied timestamp; if it is not the
+        # expected ISO "YYYY-MM-DDTHH:..." UTC form the hour bucketing is
+        # meaningless, so skip rather than collapse unrelated rows together.
+        if not _is_iso_hour_key(hour_key):
+            LOGGER.warning("Skipping compaction for malformed hour key %r in %s", hour_key, table)
+            continue
+        with connect(db_path) as conn:
             _compact_hour(conn, table, fields, hour_key)
 
 

@@ -36,9 +36,15 @@ class AirDataCollector:
             self.config.endpoint,
             headers={"Accept": "application/json", "User-Agent": "air-monitor/0.1"},
         )
+        max_bytes = 64 * 1024
         with urlopen(request, timeout=self.config.timeout_seconds) as response:
             content_type = response.headers.get("Content-Type", "")
-            raw = response.read(64 * 1024)
+            # Read one extra byte so an over-size body is reported explicitly
+            # rather than silently truncated into a confusing JSON parse error.
+            raw = response.read(max_bytes + 1)
+
+        if len(raw) > max_bytes:
+            raise ValueError(f"response exceeds {max_bytes} bytes")
 
         try:
             payload = json.loads(raw.decode("utf-8"))

@@ -135,12 +135,11 @@ def _run(args: argparse.Namespace) -> int:
         signal.signal(signal.SIGBREAK, stop)
 
     try:
-        # Wait for a stop signal. The short timeout lets the SIGINT/SIGTERM
-        # handler run promptly and keeps Ctrl+C responsive on all platforms.
+        # Wait for a stop signal. The handler above sets stop_event (so Ctrl+C
+        # does not surface as KeyboardInterrupt); the short timeout keeps the
+        # loop responsive to the signal on all platforms.
         while not stop_event.is_set():
             stop_event.wait(0.5)
-    except KeyboardInterrupt:
-        stop_event.set()
     finally:
         stop_event.set()
         httpd.shutdown()  # safe: called from the main thread, not the server thread
