@@ -140,6 +140,13 @@ def _run(args: argparse.Namespace) -> int:
         ac_controller = AcController(ac_sidecar.base_url, args.db)
         ac_controller.start(stop_event)
         httpd.RequestHandlerClass.ac = ac_controller
+        # Relaunch the JVM child if it dies on its own (no-op for external URL).
+        threading.Thread(
+            target=ac_sidecar.supervise,
+            args=(stop_event,),
+            name="ac-supervisor",
+            daemon=True,
+        ).start()
 
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()

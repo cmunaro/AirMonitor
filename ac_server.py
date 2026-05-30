@@ -56,9 +56,38 @@ class _AuthStrippingRedirectHandler(urllib.request.HTTPRedirectHandler):
 class AcSidecar:
     """Owns the lifecycle of the AC server subprocess."""
 
-    def __init__(self, base_url: str, process: subprocess.Popen | None):
+    def __init__(
+        self,
+        base_url: str,
+        process: subprocess.Popen | None,
+        jar: Path | None = None,
+        port: int | None = None,
+    ):
         self.base_url = base_url
         self._process = process
+        self._jar = jar
+        self._port = port
+
+    @property
+    def external(self) -> bool:
+        """True when pointed at a server we don't manage (AIR_MONITOR_AC_URL)."""
+        return self._jar is None
+
+    def supervise(self, stop_event, check_interval: float = 10.0) -> None:
+        """Relaunch the JVM if it exits unexpectedly. No-op for external servers."""
+        if self.external:
+            return
+        while not stop_event.is_set():
+            if self._process is not None and self._process.poll() is not None:
+                LOGGER.warning(
+                    "AC sidecar exited (code %s); relaunching", self._process.returncode
+                )
+                try:
+                    self._process = _launch(self._jar, self._port)
+                    _await_health(self.base_url, self._process)
+                except Exception:
+                    LOGGER.exception("Failed to relaunch AC sidecar; will retry")
+            stop_event.wait(check_interval)
 
     def stop(self, timeout: float = 5.0) -> None:
         if self._process is None or self._process.poll() is not None:
@@ -105,11 +134,11 @@ def _start() -> AcSidecar | None:
     process = _launch(jar, config.AC_PORT)
     if not _await_health(base_url, process):
         LOGGER.warning("AC sidecar did not become healthy; AC features disabled")
-        AcSidecar(base_url, process).stop()
+        AcSidecar(base_url, process, jar, config.AC_PORT).stop()
         return None
 
     LOGGER.info("AC sidecar ready at %s", base_url)
-    return AcSidecar(base_url=base_url, process=process)
+    return AcSidecar(base_url=base_url, process=process, jar=jar, port=config.AC_PORT)
 
 
 def _ensure_jar() -> Path | None:

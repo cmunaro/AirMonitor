@@ -1,0 +1,28 @@
+[Unit]
+Description=Air Monitor (dashboard + sensor collectors + Olimpia AC sidecar)
+# AC client and the release fetch both need internet, so wait for the network.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust to the user/path where you cloned the repo on the Pi.
+User=cmunaro
+WorkingDirectory=/home/cmunaro/AirMonitor
+ExecStart=/usr/bin/python3 run.py run
+
+# Always bring it back: crashes, clean exits, and on boot.
+Restart=always
+RestartSec=5
+# Never give up after repeated crashes (default would stop after 5 in 10s).
+StartLimitIntervalSec=0
+
+# run.py handles SIGTERM gracefully and stops the JVM child; give it room.
+# KillMode=control-group (default) also ensures the JVM child is reaped.
+TimeoutStopSec=25
+
+# Secrets/pins are loaded by config.py from ./ac.env in WorkingDirectory,
+# so no EnvironmentFile is needed here.
+
+[Install]
+WantedBy=multi-user.target
