@@ -6,7 +6,7 @@ import json
 import logging
 import mimetypes
 from http import HTTPStatus
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -25,7 +25,11 @@ LOGGER = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).with_name("static")
 
 
-class AirMonitorHandler(SimpleHTTPRequestHandler):
+# Subclasses BaseHTTPRequestHandler, NOT SimpleHTTPRequestHandler: the latter
+# ships do_HEAD/send_head that serve files from the process working directory,
+# which would bypass do_GET's routing and the static/ sandbox (e.g. HEAD probing
+# arbitrary files). All file access goes through _serve_static below instead.
+class AirMonitorHandler(BaseHTTPRequestHandler):
     db_path: Path
     static_dir: Path = STATIC_DIR
 

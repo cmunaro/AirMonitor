@@ -113,6 +113,7 @@ def _run(args: argparse.Namespace) -> int:
     maint_thread.start()
 
     httpd = make_server(args.host, args.port, args.db)
+    _log_dashboard_url(args.host, args.port)
 
     # serve_forever() runs in its own thread so the main thread can own
     # shutdown. httpd.shutdown() blocks until serve_forever() returns and must
@@ -153,6 +154,7 @@ def _run(args: argparse.Namespace) -> int:
 
 def _serve(host: str, port: int, db_path: Path) -> int:
     httpd = make_server(host, port, db_path)
+    _log_dashboard_url(host, port)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -160,6 +162,15 @@ def _serve(host: str, port: int, db_path: Path) -> int:
     finally:
         httpd.server_close()
     return 0
+
+
+def _log_dashboard_url(host: str, port: int) -> None:
+    # When bound to all interfaces, 0.0.0.0/:: is not a usable address to open;
+    # point the user at localhost while noting it is reachable on the LAN too.
+    if host in ("0.0.0.0", "::", ""):
+        LOGGER.info("Dashboard ready at http://localhost:%s (listening on %s, reachable on the LAN)", port, host or "0.0.0.0")
+    else:
+        LOGGER.info("Dashboard ready at http://%s:%s", host, port)
 
 
 def _collector_config(args: argparse.Namespace) -> CollectorConfig:
