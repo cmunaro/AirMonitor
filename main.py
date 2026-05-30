@@ -12,6 +12,7 @@ from pathlib import Path
 
 LOGGER = logging.getLogger(__name__)
 
+from . import ac_server
 from .collector import AirDataCollector, CollectorConfig, RadiationCollector
 from .config import (
     DEFAULT_DB_PATH,
@@ -112,6 +113,8 @@ def _run(args: argparse.Namespace) -> int:
     )
     maint_thread.start()
 
+    ac_sidecar = None
+
     httpd = make_server(args.host, args.port, args.db)
     _log_dashboard_url(args.host, args.port)
 
@@ -125,6 +128,11 @@ def _run(args: argparse.Namespace) -> int:
         daemon=True,
     )
     server_thread.start()
+
+    # Optional AC sidecar: fetches the pinned Olimpia jar and launches it. Started
+    # after the dashboard is already serving, since the fetch/health-check can be
+    # slow and AC is non-essential.
+    ac_sidecar = ac_server.maybe_start()
 
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()
@@ -148,6 +156,8 @@ def _run(args: argparse.Namespace) -> int:
         collector_thread.join(timeout=5)
         rad_thread.join(timeout=5)
         maint_thread.join(timeout=2)
+        if ac_sidecar is not None:
+            ac_sidecar.stop()
         httpd.server_close()
     return 0
 
