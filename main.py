@@ -112,18 +112,39 @@ def _run(args: argparse.Namespace) -> int:
     )
     maint_thread.start()
 
+    httpd = make_server(args.host, args.port, args.db)
+
+    # serve_forever() runs in its own thread so the main thread can own
+    # shutdown. httpd.shutdown() blocks until serve_forever() returns and must
+    # be called from a *different* thread -- calling it from the signal handler
+    # (which runs in the main thread, the one stuck in serve_forever) deadlocks.
+    server_thread = threading.Thread(
+        target=httpd.serve_forever,
+        name="air-monitor-http",
+        daemon=True,
+    )
+    server_thread.start()
+
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()
-        httpd.shutdown()
 
-    httpd = make_server(args.host, args.port, args.db)
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
+    # Windows delivers Ctrl+Break as SIGBREAK; register it too where available.
+    if hasattr(signal, "SIGBREAK"):
+        signal.signal(signal.SIGBREAK, stop)
 
     try:
-        httpd.serve_forever()
+        # Wait for a stop signal. The short timeout lets the SIGINT/SIGTERM
+        # handler run promptly and keeps Ctrl+C responsive on all platforms.
+        while not stop_event.is_set():
+            stop_event.wait(0.5)
+    except KeyboardInterrupt:
+        stop_event.set()
     finally:
         stop_event.set()
+        httpd.shutdown()  # safe: called from the main thread, not the server thread
+        server_thread.join(timeout=5)
         collector_thread.join(timeout=5)
         rad_thread.join(timeout=5)
         maint_thread.join(timeout=2)

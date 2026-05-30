@@ -90,7 +90,12 @@ class AirDataCollector:
         )
         while not stop_event.is_set():
             started = time.monotonic()
-            self.collect_once()
+            try:
+                self.collect_once()
+            except Exception:
+                # collect_once handles expected failures itself; anything that
+                # escapes (e.g. a transient sqlite lock) must not kill the thread.
+                LOGGER.exception("Unexpected error in air collector cycle")
             elapsed = time.monotonic() - started
             delay = max(0.1, self.config.interval_seconds - elapsed)
             stop_event.wait(delay)

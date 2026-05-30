@@ -28,6 +28,10 @@ READING_FIELDS = (
 
 ALL_READING_COLUMNS = ("timestamp",) + READING_FIELDS
 
+# Columns with INTEGER affinity, so averaged compaction values are rounded back
+# to ints instead of being stored as REAL.
+INTEGER_FIELDS = frozenset({"cpm"})
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -41,6 +45,9 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    # Multiple writer threads (collectors + maintenance) contend for the write
+    # lock; wait instead of failing immediately with "database is locked".
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
@@ -160,9 +167,11 @@ def log_error(db_path: str | Path, stage: str, message: str) -> None:
 
 
 def latest_reading(db_path: str | Path) -> dict[str, Any] | None:
+    # Order by fetched_at, not id: compaction re-inserts historical rows with
+    # fresh autoincrement ids, so the highest id is not necessarily the newest.
     with connect(db_path) as conn:
         row = conn.execute(
-            "SELECT * FROM readings ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM readings ORDER BY fetched_at DESC, id DESC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
 
@@ -174,9 +183,11 @@ def count_radiation(db_path: str | Path) -> int:
 
 
 def latest_radiation(db_path: str | Path) -> dict[str, Any] | None:
+    # Order by timestamp, not id: compaction re-inserts historical rows with
+    # fresh autoincrement ids, so the highest id is not necessarily the newest.
     with connect(db_path) as conn:
         row = conn.execute(
-            "SELECT * FROM radiation_readings ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM radiation_readings ORDER BY timestamp DESC, id DESC LIMIT 1"
         ).fetchone()
     return dict(row) if row else None
 
@@ -304,7 +315,21 @@ def compact_table(db_path: str | Path, table: str, fields: tuple[str, ...]) -> N
 
         for row in hours_rows:
             hour_key = row["hour_key"]
+            # Air readings carry a sensor-supplied timestamp; if it is not the
+            # expected ISO "YYYY-MM-DDTHH:..." UTC form the hour bucketing is
+            # meaningless, so skip rather than collapse unrelated rows together.
+            if not _is_iso_hour_key(hour_key):
+                LOGGER.warning("Skipping compaction for malformed hour key %r in %s", hour_key, table)
+                continue
             _compact_hour(conn, table, fields, hour_key)
+
+
+def _is_iso_hour_key(hour_key: str) -> bool:
+    try:
+        datetime.strptime(hour_key, "%Y-%m-%dT%H:00:00Z")
+        return True
+    except (ValueError, TypeError):
+        return False
 
 
 def _compact_hour(conn: sqlite3.Connection, table: str, fields: tuple[str, ...], hour_key: str) -> None:
@@ -340,7 +365,8 @@ def _compact_hour(conn: sqlite3.Connection, table: str, fields: tuple[str, ...],
             new_point["fetched_at"] = chunk[len(chunk)//2]["fetched_at"]
         for field in fields:
             vals = [c[field] for c in chunk if c[field] is not None]
-            new_point[field] = sum(vals) / len(vals) if vals else 0.0
+            average = sum(vals) / len(vals) if vals else 0.0
+            new_point[field] = round(average) if field in INTEGER_FIELDS else average
 
         collapsed.append(new_point)
 
