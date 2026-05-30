@@ -9,7 +9,7 @@ Type=simple
 # Adjust to the user/path where you cloned the repo on the Pi.
 User=cmunaro
 WorkingDirectory=/home/cmunaro/AirMonitor
-ExecStart=/usr/bin/python3 run.py run
+ExecStart=/home/cmunaro/AirMonitor/.venv/bin/python run.py run
 
 # Always bring it back: crashes, clean exits, and on boot.
 Restart=always
