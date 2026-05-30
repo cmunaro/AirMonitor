@@ -33,6 +33,7 @@ STATIC_DIR = Path(__file__).with_name("static")
 class AirMonitorHandler(BaseHTTPRequestHandler):
     db_path: Path
     static_dir: Path = STATIC_DIR
+    ac = None  # AcController, or None when the AC sidecar is unavailable
 
     server_version = "AirMonitorHTTP/0.1"
 
@@ -66,12 +67,66 @@ class AirMonitorHandler(BaseHTTPRequestHandler):
                     "recent_errors": recent_errors(self.db_path, limit=10),
                 }
             )
+        elif parsed.path == "/api/ac":
+            if self.ac is None:
+                self._json_response({"available": False})
+            else:
+                self._json_response(self.ac.get_view())
         elif parsed.path == "/" or parsed.path == "/index.html":
             self._serve_static("index.html")
         elif parsed.path.startswith("/static/"):
             self._serve_static(parsed.path.removeprefix("/static/"))
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+
+    def do_POST(self) -> None:
+        from .ac import AC_MODES, FAN_SPEEDS
+
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/ac/"):
+            self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+            return
+        if self.ac is None:
+            self._json_response({"error": "AC unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+
+        body = self._read_json()
+        if body is None:
+            return  # error already sent
+
+        try:
+            if parsed.path == "/api/ac/power":
+                view = self.ac.set_power(bool(body["on"]))
+            elif parsed.path == "/api/ac/control-mode":
+                view = self.ac.set_control_mode(_require(body, "mode", ("auto", "manual")))
+            elif parsed.path == "/api/ac/targets":
+                view = self.ac.set_targets(body.get("humidity"), body.get("temperature"))
+            elif parsed.path == "/api/ac/mode":
+                view = self.ac.set_mode(_require(body, "mode", AC_MODES))
+            elif parsed.path == "/api/ac/fan":
+                view = self.ac.set_fan_speed(_require(body, "speed", FAN_SPEEDS))
+            else:
+                self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+                return
+        except (KeyError, ValueError) as exc:
+            self._json_response({"error": f"bad request: {exc}"}, HTTPStatus.BAD_REQUEST)
+            return
+        except Exception as exc:  # sidecar/cloud failure
+            self._json_response({"error": str(exc)}, HTTPStatus.BAD_GATEWAY)
+            return
+        self._json_response(view)
+
+    def _read_json(self) -> dict | None:
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            length = 0
+        raw = self.rfile.read(length) if length else b""
+        try:
+            return json.loads(raw or b"{}")
+        except json.JSONDecodeError:
+            self._json_response({"error": "invalid JSON body"}, HTTPStatus.BAD_REQUEST)
+            return None
 
     def log_message(self, format: str, *args: object) -> None:
         LOGGER.info("%s - %s", self.address_string(), format % args)
@@ -158,6 +213,13 @@ def serve(host: str, port: int, db_path: str | Path) -> None:
         httpd.serve_forever()
     finally:
         httpd.server_close()
+
+
+def _require(body: dict, key: str, allowed: tuple[str, ...]) -> str:
+    value = body[key]
+    if value not in allowed:
+        raise ValueError(f"{key} must be one of {allowed}")
+    return value
 
 
 def _first_float(params: dict[str, list[str]], key: str, default: float) -> float:

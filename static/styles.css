@@ -194,6 +194,100 @@ canvas {
   font-size: 18px;
 }
 
+.ac-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
+  padding: 16px;
+}
+
+.ac-top {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ac-power {
+  border-radius: 99px;
+  font-weight: 700;
+  min-width: 64px;
+  padding: 0 16px;
+}
+
+.ac-power.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ac-power.off {
+  background: #fdecea;
+  border-color: #f3c0bb;
+  color: #b42318;
+}
+
+.ac-readout {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 8px 0 14px;
+  min-height: 18px;
+}
+
+.ac-cmode {
+  margin-bottom: 14px;
+}
+
+.ac-panel {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.ac-fields {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ac-field {
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.ac-field input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  margin-right: 4px;
+  min-height: 38px;
+  padding: 0 10px;
+  width: 84px;
+}
+
+.ac-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+.ac-group {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ac-label {
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 78px;
+}
+
 #diagnostics {
   background: var(--panel);
   border: 1px solid var(--line);

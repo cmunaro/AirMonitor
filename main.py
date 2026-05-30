@@ -131,8 +131,15 @@ def _run(args: argparse.Namespace) -> int:
 
     # Optional AC sidecar: fetches the pinned Olimpia jar and launches it. Started
     # after the dashboard is already serving, since the fetch/health-check can be
-    # slow and AC is non-essential.
+    # slow and AC is non-essential. When up, attach a controller to the live
+    # handler so the AC routes light up.
     ac_sidecar = ac_server.maybe_start()
+    if ac_sidecar is not None:
+        from .ac import AcController
+
+        ac_controller = AcController(ac_sidecar.base_url, args.db)
+        ac_controller.start(stop_event)
+        httpd.RequestHandlerClass.ac = ac_controller
 
     def stop(_signum: int, _frame: object) -> None:
         stop_event.set()

@@ -120,6 +120,14 @@ def init_db(db_path: str | Path) -> None:
 
             CREATE INDEX IF NOT EXISTS idx_collector_errors_occurred_at
                 ON collector_errors (occurred_at);
+
+            CREATE TABLE IF NOT EXISTS ac_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                control_mode TEXT NOT NULL,
+                target_humidity REAL NOT NULL,
+                target_temp REAL NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """
         )
 
@@ -225,6 +233,58 @@ def recent_errors(db_path: str | Path, limit: int = 20) -> list[dict[str, Any]]:
             (limit,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def _ac_defaults() -> dict[str, Any]:
+    from . import config
+
+    return {
+        "control_mode": "auto",
+        "target_humidity": config.AC_DEFAULT_TARGET_HUMIDITY,
+        "target_temp": config.AC_DEFAULT_TARGET_TEMP,
+        "updated_at": None,
+    }
+
+
+def get_ac_settings(db_path: str | Path) -> dict[str, Any]:
+    with connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT control_mode, target_humidity, target_temp, updated_at "
+            "FROM ac_settings WHERE id = 1"
+        ).fetchone()
+    return dict(row) if row else _ac_defaults()
+
+
+def save_ac_settings(
+    db_path: str | Path,
+    *,
+    control_mode: str | None = None,
+    target_humidity: float | None = None,
+    target_temp: float | None = None,
+) -> dict[str, Any]:
+    """Partial upsert of the single AC settings row; returns the merged result."""
+    current = get_ac_settings(db_path)
+    if control_mode is not None and control_mode not in ("auto", "manual"):
+        raise ValueError("control_mode must be 'auto' or 'manual'")
+    merged = {
+        "control_mode": control_mode if control_mode is not None else current["control_mode"],
+        "target_humidity": float(target_humidity) if target_humidity is not None else current["target_humidity"],
+        "target_temp": float(target_temp) if target_temp is not None else current["target_temp"],
+    }
+    with connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO ac_settings (id, control_mode, target_humidity, target_temp, updated_at)
+            VALUES (1, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                control_mode = excluded.control_mode,
+                target_humidity = excluded.target_humidity,
+                target_temp = excluded.target_temp,
+                updated_at = excluded.updated_at
+            """,
+            (merged["control_mode"], merged["target_humidity"], merged["target_temp"], utc_now_iso()),
+        )
+    return get_ac_settings(db_path)
 
 
 def error_stats(db_path: str | Path) -> dict[str, Any]:

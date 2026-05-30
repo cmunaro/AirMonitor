@@ -85,3 +85,15 @@ AC_GH_TOKEN = (
     or os.environ.get("GITHUB_TOKEN")
     or ""
 ).strip()
+
+# --- AC control (air_monitor side) ------------------------------------------
+# How often the controller polls the AC snapshot and runs the auto loop.
+AC_POLL_SECONDS = int(os.environ.get("AIR_MONITOR_AC_POLL", "30"))
+
+# Automatic-mode regulation: hysteresis (deadband) around the targets, so the
+# controller does not flap, and the default setpoints used until the user
+# changes them. target_temp is air_monitor-side only (not sent to the unit).
+AC_AUTO_HUMIDITY_HYST = float(os.environ.get("AIR_MONITOR_AC_HUM_HYST", "3"))
+AC_AUTO_TEMP_HYST = float(os.environ.get("AIR_MONITOR_AC_TEMP_HYST", "1"))
+AC_DEFAULT_TARGET_HUMIDITY = float(os.environ.get("AIR_MONITOR_AC_TARGET_HUM", "50"))
+AC_DEFAULT_TARGET_TEMP = float(os.environ.get("AIR_MONITOR_AC_TARGET_TEMP", "24"))

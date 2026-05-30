@@ -106,10 +106,13 @@ function init() {
     state.mouseX = null;
     drawChart();
   });
+  acInit();
   loadReadings();
   loadDiagnostics();
+  loadAc();
   setInterval(loadReadings, 10000);
   setInterval(loadDiagnostics, 30000);
+  setInterval(loadAc, 15000);
 }
 
 async function loadDiagnostics() {
@@ -534,6 +537,119 @@ function drawTooltip(plot, fields, min, max, width, height) {
     ctx.fillStyle = COLORS[p.field];
     ctx.fillText(p.text, x + offset, p.y);
   });
+}
+
+// --- Air conditioner ---------------------------------------------------------
+const ac = {
+  card: null, power: null, readout: null, cmode: null,
+  autoPanel: null, manualPanel: null, targetHum: null, targetTemp: null,
+  saveTargets: null, modeBox: null, fanBox: null, view: null,
+};
+
+function acInit() {
+  ac.card = document.getElementById("ac-card");
+  ac.power = document.getElementById("ac-power");
+  ac.readout = document.getElementById("ac-readout");
+  ac.cmode = document.getElementById("ac-cmode");
+  ac.autoPanel = document.getElementById("ac-auto-panel");
+  ac.manualPanel = document.getElementById("ac-manual-panel");
+  ac.targetHum = document.getElementById("ac-target-hum");
+  ac.targetTemp = document.getElementById("ac-target-temp");
+  ac.saveTargets = document.getElementById("ac-save-targets");
+  ac.modeBox = document.getElementById("ac-mode");
+  ac.fanBox = document.getElementById("ac-fan");
+
+  ac.power.addEventListener("click", () => {
+    const on = !(ac.view && ac.view.power === "On");
+    acPost("/api/ac/power", { on });
+  });
+  ac.cmode.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-cmode]");
+    if (btn) acPost("/api/ac/control-mode", { mode: btn.dataset.cmode });
+  });
+  ac.saveTargets.addEventListener("click", () => {
+    acPost("/api/ac/targets", {
+      humidity: Number(ac.targetHum.value),
+      temperature: Number(ac.targetTemp.value),
+    });
+  });
+  ac.modeBox.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-mode]");
+    if (btn) acPost("/api/ac/mode", { mode: btn.dataset.mode });
+  });
+  ac.fanBox.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-fan]");
+    if (btn) acPost("/api/ac/fan", { speed: btn.dataset.fan });
+  });
+}
+
+async function loadAc() {
+  try {
+    const res = await fetch("/api/ac");
+    if (!res.ok) return;
+    acRender(await res.json());
+  } catch (err) {
+    console.error("AC load failed:", err);
+  }
+}
+
+async function acPost(path, payload) {
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const view = await res.json();
+    if (res.ok) acRender(view);
+    else console.error("AC command failed:", view.error || res.status);
+  } catch (err) {
+    console.error("AC command failed:", err);
+  }
+}
+
+function acRender(view) {
+  if (!view || !view.available) {
+    ac.card.hidden = true;
+    return;
+  }
+  ac.card.hidden = false;
+  ac.view = view;
+
+  const on = view.power === "On";
+  ac.power.textContent = on ? "On" : "Off";
+  ac.power.classList.toggle("on", on);
+  ac.power.classList.toggle("off", !on);
+
+  const cur = view.current || {};
+  const parts = [];
+  if (Number.isFinite(cur.temperature)) parts.push(`Room ${cur.temperature.toFixed(1)} °C`);
+  if (Number.isFinite(cur.humidity)) parts.push(`${cur.humidity.toFixed(0)}% RH`);
+  if (view.mode) parts.push(`Mode ${view.mode}`);
+  if (view.fan_speed) parts.push(`Fan ${view.fan_speed}`);
+  ac.readout.textContent = parts.join("  ·  ");
+
+  const auto = view.control_mode === "auto";
+  ac.cmode.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.cmode === view.control_mode)
+  );
+  ac.autoPanel.hidden = !auto;
+  ac.manualPanel.hidden = auto;
+
+  const t = view.targets || {};
+  if (document.activeElement !== ac.targetHum && Number.isFinite(t.humidity)) {
+    ac.targetHum.value = t.humidity;
+  }
+  if (document.activeElement !== ac.targetTemp && Number.isFinite(t.temperature)) {
+    ac.targetTemp.value = t.temperature;
+  }
+
+  ac.modeBox.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.mode === view.mode)
+  );
+  ac.fanBox.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.fan === view.fan_speed)
+  );
 }
 
 init();
