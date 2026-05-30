@@ -35,11 +35,23 @@ sensor and a `java` runtime if you use the AC integration.
 git clone <this-repo> AirMonitor
 cd AirMonitor
 
+# Create and activate a virtualenv (the systemd unit expects ./.venv).
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+
+# Optional: install the radiation-sensor driver (the core service needs no deps).
+pip install pygmc
+
 # Run the full service: collectors + dashboard (+ AC sidecar if configured).
 python run.py run
 ```
 
 Then open the dashboard at **http://localhost:8080** (it also listens on the LAN).
+
+The core service is standard-library only, so the virtualenv is optional for a
+bare run — but [`deploy/air-monitor.service`](deploy/air-monitor.service) launches
+`./.venv/bin/python`, so create the venv at the project root if you deploy via
+systemd (and that's also where `pygmc` is installed when you use a Geiger counter).
 
 > The package uses relative imports. `run.py` is a convenience wrapper that puts
 > the parent directory on `sys.path` and runs the package; it is equivalent to
