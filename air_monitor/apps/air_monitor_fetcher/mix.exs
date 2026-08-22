@@ -26,7 +26,8 @@ defmodule AirMonitorFetcher.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.7"}
+      {:req, "~> 0.7.2"},
+      {:ecto, "~> 3.14.2"}
     ]
   end
 end
