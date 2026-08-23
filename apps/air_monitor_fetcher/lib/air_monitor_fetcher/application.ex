@@ -10,6 +10,7 @@ defmodule AirMonitorFetcher.Application do
     children = [
       # Starts a worker by calling: AirMonitorFetcher.Worker.start_link(arg)
       # {AirMonitorFetcher.Worker, arg}
+      AirMonitorFetcher.Worker
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

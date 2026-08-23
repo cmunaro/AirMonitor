@@ -1,7 +1,4 @@
 defmodule AirMonitorFetcher do
-  @moduledoc """
-  Documentation for `AirMonitorFetcher`.
-  """
   require Logger
 
   def fetch do
@@ -11,7 +8,7 @@ defmodule AirMonitorFetcher do
     |> log_result()
   end
 
-  defp extract_body({:ok, %Req.Response{status: status, body: body}}) do
+  defp extract_body({:ok, %Req.Response{status: _status, body: body}}) do
     {:ok, body}
   end
 
