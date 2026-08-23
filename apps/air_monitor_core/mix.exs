@@ -1,9 +1,9 @@
-defmodule AirMonitorFetcher.MixProject do
+defmodule AirMonitorCore.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :air_monitor_fetcher,
+      app: :air_monitor_core,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -19,15 +19,14 @@ defmodule AirMonitorFetcher.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {AirMonitorFetcher.Application, []}
+      mod: {AirMonitorCore.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:air_monitor_core, in_umbrella: true},
-      {:req, "~> 0.7.2"}
+      {:ecto, "~> 3.14.2"}
     ]
   end
 end

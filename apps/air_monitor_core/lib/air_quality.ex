@@ -1,4 +1,4 @@
-defmodule AirQuality do
+defmodule AirMonitorCore.AirQuality do
   use Ecto.Schema
   import Ecto.Changeset
 
