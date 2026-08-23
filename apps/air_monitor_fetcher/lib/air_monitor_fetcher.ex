@@ -9,35 +9,27 @@ defmodule AirMonitorFetcher do
     |> maybe_log_errors()
   end
 
-  defp extract_body({:ok, %Req.Response{body: body}}) do
-    {:ok, body}
+  defp extract_body({:ok, %Req.Response{body: body}}), do: {:ok, body}
+  defp extract_body({:error, _reason} = failure), do: failure
+
+  defp parse_quality(result) do
+    case result do
+      {:ok, body} -> AirMonitorCore.AirQuality.parse(body)
+      {:error, _reason} -> result
+    end
   end
 
-  defp extract_body({:error, reason}) do
-    {:error, {:request_failed, reason}}
+  defp deliver_result(result) do
+    case result do
+      {:ok, quality} -> AirMonitorCore.ingest(quality)
+      {:error, _reason} -> result
+    end
   end
-
-  defp parse_quality({:ok, body}) do
-    AirMonitorCore.AirQuality.parse(body)
-  end
-
-  defp parse_quality({:error, _reason} = error) do
-    error
-  end
-
 
   defp maybe_log_errors(result) do
     case result do
       {:error, reason} -> Logger.error("Fetch failed: #{inspect(reason)}")
       :ok -> :ok
     end
-  end
-
-  defp deliver_result({:ok, quality}) do
-    AirMonitorCore.ingest(quality)
-  end
-
-  defp deliver_result({:error, _} = error) do
-    error
   end
 end
