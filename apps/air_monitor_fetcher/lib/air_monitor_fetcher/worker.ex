@@ -13,8 +13,8 @@ defmodule AirMonitorFetcher.Worker do
 
   @impl true
   def handle_info(:fetch, state) do
-    AirMonitorFetcher.fetch()
     Process.send_after(self(), :fetch, 10_000)
+    AirMonitorFetcher.fetch()
     {:noreply, state}
   end
 
