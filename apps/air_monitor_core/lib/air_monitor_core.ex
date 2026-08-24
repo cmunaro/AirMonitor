@@ -14,19 +14,16 @@ defmodule AirMonitorCore do
   defp process(%AirMonitorCore.AirQualityReading{} = reading) do
     if AirMonitorCore.AirQualityReading.valid?(reading) do
       reading
-      |> to_scored_quality()
-      # Save into db from storage app
-      |> Logger.info
+      |> add_score
+      |> AirMonitorStorage.record
     else
       Logger.error("Invalid AirQuality #{inspect(reading)}")
     end
   end
 
-  defp to_scored_quality(%AirMonitorCore.AirQualityReading{} = air_quality) do
-    %AirMonitorCore.AirQualityScored{
-      details: air_quality,
-      score: calculate_score(air_quality)
-    }
+  defp add_score(%AirMonitorCore.AirQualityReading{} = reading) do
+    readings_map = Map.from_struct(reading)
+    Map.put(readings_map, :score, calculate_score(reading))
   end
 
   defp calculate_score(%AirMonitorCore.AirQualityReading{} = air_quality) do

@@ -18,3 +18,9 @@ import Config
 #       format: "$date $time [$level] $metadata$message\n",
 #       metadata: [:user_id]
 #
+config :air_monitor_storage,
+  ecto_repos: [AirMonitorStorage.Repository]
+
+config :air_monitor_storage, AirMonitorStorage.Repository,
+  database: Path.expand("../air_monitor.db", __DIR__),
+  pool_size: 1

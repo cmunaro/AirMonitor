@@ -1,9 +1,9 @@
-defmodule AirMonitorCore.MixProject do
+defmodule AirMonitorStorage.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :air_monitor_core,
+      app: :air_monitor_storage,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -19,14 +19,14 @@ defmodule AirMonitorCore.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {AirMonitorCore.Application, []}
+      mod: {AirMonitorStorage.Application, []}
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:air_monitor_storage, in_umbrella: true},
+      {:ecto_sqlite3, "~> 0.21"}
     ]
   end
 end
