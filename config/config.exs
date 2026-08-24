@@ -24,3 +24,6 @@ config :air_monitor_storage,
 config :air_monitor_storage, AirMonitorStorage.Repository,
   database: Path.expand("../air_monitor.db", __DIR__),
   pool_size: 1
+
+config :air_monitor_core,
+  storage: AirMonitorStorage

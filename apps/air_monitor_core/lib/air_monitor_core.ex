@@ -15,7 +15,7 @@ defmodule AirMonitorCore do
     if AirMonitorCore.AirQualityReading.valid?(reading) do
       reading
       |> add_score
-      |> AirMonitorStorage.record
+      |> AirMonitorCore.Dependencies.storage().record
     else
       Logger.error("Invalid AirQuality #{inspect(reading)}")
     end

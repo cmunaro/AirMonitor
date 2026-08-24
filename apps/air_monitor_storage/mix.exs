@@ -26,6 +26,7 @@ defmodule AirMonitorStorage.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:air_monitor_core, in_umbrella: true},
       {:ecto_sqlite3, "~> 0.21"}
     ]
   end

@@ -26,7 +26,6 @@ defmodule AirMonitorCore.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:air_monitor_storage, in_umbrella: true},
     ]
   end
 end
