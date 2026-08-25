@@ -2,6 +2,6 @@ defmodule AirMonitorWeb.PageController do
   use AirMonitorWeb, :controller
 
   def home(conn, _params) do
-    render(conn, :home)
+    html(conn, "<!doctype html><html><body>Hello world</body></html>")
   end
 end

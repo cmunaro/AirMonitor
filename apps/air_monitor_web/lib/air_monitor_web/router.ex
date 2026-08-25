@@ -5,7 +5,6 @@ defmodule AirMonitorWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {AirMonitorWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
   end
@@ -20,10 +19,11 @@ defmodule AirMonitorWeb.Router do
     get "/", PageController, :home
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", AirMonitorWeb do
-  #   pipe_through :api
-  # end
+  scope "/api", AirMonitorWeb do
+    pipe_through :api
+
+    get "/", ApiController, :show
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:air_monitor_web, :dev_routes) do

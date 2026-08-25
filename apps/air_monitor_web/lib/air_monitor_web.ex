@@ -17,7 +17,7 @@ defmodule AirMonitorWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images favicon.ico robots.txt)
+  def static_paths, do: []
 
   def router do
     quote do
@@ -84,12 +84,6 @@ defmodule AirMonitorWeb do
 
       # HTML escaping functionality
       import Phoenix.HTML
-      # Core UI components
-      import AirMonitorWeb.CoreComponents
-
-      # Common modules used in templates
-      alias Phoenix.LiveView.JS
-      alias AirMonitorWeb.Layouts
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

@@ -13,11 +13,7 @@ config :air_monitor_web, AirMonitorWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "Zp9DZRIayBE6ecZKIEmqfWrnWkWGivDBb/DxpCthzWCK5AhRjoirEc2bzQDdPY4m",
-  watchers: [
-    esbuild: {Esbuild, :install_and_run, [:air_monitor_web, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:air_monitor_web, ~w(--watch)]}
-  ]
+  secret_key_base: "Zp9DZRIayBE6ecZKIEmqfWrnWkWGivDBb/DxpCthzWCK5AhRjoirEc2bzQDdPY4m"
 
 # ## SSL Support
 #
