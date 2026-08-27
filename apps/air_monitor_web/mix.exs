@@ -23,7 +23,6 @@ defmodule AirMonitorWeb.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {AirMonitorWeb.Application, []},
       extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end

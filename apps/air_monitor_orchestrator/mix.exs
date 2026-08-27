@@ -1,9 +1,9 @@
-defmodule AirMonitorFetcher.MixProject do
+defmodule AirMonitorOrchestrator.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :air_monitor_fetcher,
+      app: :air_monitor_orchestrator,
       version: "0.1.0",
       build_path: "../../_build",
       config_path: "../../config/config.exs",
@@ -19,6 +19,7 @@ defmodule AirMonitorFetcher.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AirMonitorOrchestrator.Application, []}
     ]
   end
 
@@ -26,7 +27,9 @@ defmodule AirMonitorFetcher.MixProject do
   defp deps do
     [
       {:air_monitor_core, in_umbrella: true},
-      {:req, "~> 0.7.2"}
+      {:air_monitor_storage, in_umbrella: true},
+      {:air_monitor_fetcher, in_umbrella: true},
+      {:air_monitor_web, in_umbrella: true},
     ]
   end
 end
