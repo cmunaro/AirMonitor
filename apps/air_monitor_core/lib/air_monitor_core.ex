@@ -1,6 +1,17 @@
 defmodule AirMonitorCore do
   require Logger
 
+  @type scored_readings :: %{
+    temp: float(),
+    humid: float(),
+    co2: non_neg_integer(),
+    voc: non_neg_integer(),
+    pm25: non_neg_integer(),
+    pm10: non_neg_integer(),
+    timestamp: DateTime.t(),
+    score: non_neg_integer()
+  }
+
   def ingest(%AirMonitorCore.AirQualityReading{} = data) do
     case Task.Supervisor.start_child(
       AirMonitorCore.TaskSupervisor,
@@ -44,5 +55,8 @@ defmodule AirMonitorCore do
   |> max(0)
   |> min(100)
   end
+
+  @spec get_readings :: [scored_readings()]
+  def get_readings, do: AirMonitorCore.Dependencies.storage().get_readings()
 
 end

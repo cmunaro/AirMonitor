@@ -22,7 +22,7 @@ defmodule AirMonitorWeb.Router do
   scope "/api", AirMonitorWeb do
     pipe_through :api
 
-    get "/", ApiController, :show
+    get "/readings", ApiController, :get_readings
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
