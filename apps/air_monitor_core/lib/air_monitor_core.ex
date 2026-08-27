@@ -1,7 +1,7 @@
 defmodule AirMonitorCore do
   require Logger
 
-  @type scored_readings :: %{
+  @type scored_reading() :: %{
     temp: float(),
     humid: float(),
     co2: non_neg_integer(),
@@ -56,7 +56,14 @@ defmodule AirMonitorCore do
   |> min(100)
   end
 
-  @spec get_readings :: [scored_readings()]
-  def get_readings, do: AirMonitorCore.Dependencies.storage().get_readings()
+  @type readings_page() :: %{
+    data: [scored_reading()],
+    next_cursor: DateTime.t() | nil
+  }
+
+  @spec get_readings(pos_integer(), DateTime.t() | nil) :: readings_page()
+  def get_readings(limit \\ 20, before \\ nil) do
+    AirMonitorCore.Dependencies.storage().get_readings(limit, before)
+  end
 
 end
