@@ -7,12 +7,30 @@ defmodule AirMonitorOrchestrator.Application do
 
   @impl true
   def start(_type, _args) do
+    externals_supervisor = %{
+      id: AirMonitorOrchestrator.ExternalsSupervisor,
+      type: :supervisor,
+      start: {
+        Supervisor,
+        :start_link,
+        [
+          [
+            AirMonitorFetcher.Worker,
+            AirMonitorWeb.Telemetry,
+            AirMonitorWeb.Endpoint
+          ],
+          [
+            strategy: :one_for_one,
+            name: AirMonitorOrchestrator.ExternalsSupervisor
+          ]
+        ]
+      }
+    }
+
     children = [
       AirMonitorStorage.Repository,
       {Task.Supervisor, name: AirMonitorCore.TaskSupervisor},
-      AirMonitorFetcher.Worker,
-      AirMonitorWeb.Telemetry,
-      AirMonitorWeb.Endpoint,
+      externals_supervisor
     ]
 
     opts = [strategy: :rest_for_one, name: AirMonitorOrchestrator.Supervisor]
