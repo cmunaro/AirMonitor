@@ -31,6 +31,11 @@ defmodule AirMonitorWeb.ConnCase do
     end
   end
 
+  setup_all do
+    start_supervised!(AirMonitorWeb.Endpoint)
+    :ok
+  end
+
   setup _tags do
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end

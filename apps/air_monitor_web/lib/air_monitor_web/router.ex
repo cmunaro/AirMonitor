@@ -7,6 +7,7 @@ defmodule AirMonitorWeb.Router do
     plug :fetch_live_flash
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :put_root_layout, html: {AirMonitorWeb.Layouts, :root}
   end
 
   pipeline :api do
@@ -16,7 +17,7 @@ defmodule AirMonitorWeb.Router do
   scope "/", AirMonitorWeb do
     pipe_through :browser
 
-    get "/", PageController, :home
+    live "/", ReadingsLive
   end
 
   scope "/api", AirMonitorWeb do

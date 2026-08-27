@@ -16,6 +16,7 @@ defmodule AirMonitorOrchestrator.Application do
         [
           [
             AirMonitorFetcher.Worker,
+            {Phoenix.PubSub, name: AirMonitorWeb.PubSub},
             AirMonitorWeb.Telemetry,
             AirMonitorWeb.Endpoint
           ],
