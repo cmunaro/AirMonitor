@@ -8,7 +8,10 @@ defmodule AirMonitorStorage do
   def record(scored_readings) do
     %AirMonitorStorage.AirQualityRecord{}
     |> AirMonitorStorage.AirQualityRecord.changeset(scored_readings)
-    |> AirMonitorStorage.Repository.insert
+    |> AirMonitorStorage.Repository.insert(
+      on_conflict: :nothing,
+      conflict_target: [:timestamp]
+    )
   end
 
   @impl true
