@@ -19,6 +19,7 @@ defmodule AirMonitorFetcher.MixProject do
   def application do
     [
       extra_applications: [:logger],
+      mod: {AirMonitorFetcher.Application, []}
     ]
   end
 
@@ -26,6 +27,7 @@ defmodule AirMonitorFetcher.MixProject do
   defp deps do
     [
       {:air_monitor_core, in_umbrella: true},
+      {:air_monitor_storage, in_umbrella: true},
       {:req, "~> 0.7.2"}
     ]
   end

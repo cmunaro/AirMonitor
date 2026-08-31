@@ -23,7 +23,8 @@ defmodule AirMonitorWeb.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      extra_applications: [:logger, :runtime_tools, :os_mon]
+      extra_applications: [:logger, :runtime_tools, :os_mon],
+      mod: {AirMonitorWeb.Application, []}
     ]
   end
 
@@ -37,6 +38,7 @@ defmodule AirMonitorWeb.MixProject do
   defp deps do
     [
       {:air_monitor_core, in_umbrella: true},
+      {:air_monitor_storage, in_umbrella: true},
       {:phoenix, "~> 1.8.13"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},

@@ -2,13 +2,12 @@
 
 AirMonitor collects readings from an air-quality monitor, saves them to a local SQLite database, and displays them in a small Phoenix LiveView dashboard.
 
-The umbrella contains five applications:
+The umbrella contains four applications:
 
 - `air_monitor_core` contains the application logic and calculates the air-quality score.
 - `air_monitor_fetcher` fetches a new reading every few seconds.
 - `air_monitor_storage` reads and writes the SQLite database through Ecto.
 - `air_monitor_web` contains the LiveView dashboard and the JSON API.
-- `air_monitor_orchestrator` starts and supervises everything in the right order.
 
 ## Running it
 
